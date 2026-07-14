@@ -1,0 +1,42 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env.local
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 测试
+coverage
+
+# 部署临时产物
+preview.log
+scripts/.deploy-cache/
+
+# Android 构建产物（源码仍入库）
+android/app/build/
+android/.gradle/
+android/build/
+android/capacitor-cordova-android-plugins/
+android/local.properties
+
+# TypeScript 增量编译
+*.tsbuildinfo

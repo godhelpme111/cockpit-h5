@@ -1,0 +1,54 @@
+{
+  "name": "景区智能观光车 · 乘客端",
+  "short_name": "智游观光车",
+  "description": "搭载AI数字人导游的景区智能观光车乘客端，提供自然语言互动问答与Vlog自动生成能力。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F1E8",
+  "theme_color": "#1F3A3D",
+  "categories": ["travel", "lifestyle", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "AI 数字导游",
+      "short_name": "聊天",
+      "description": "与小雅进行自然语言对话",
+      "url": "/chat",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192" }
+      ]
+    },
+    {
+      "name": "Vlog 拍摄",
+      "short_name": "拍 Vlog",
+      "description": "录制并生成旅途短视频",
+      "url": "/vlog/shoot",
+      "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192" }
+      ]
+    }
+  ]
+}

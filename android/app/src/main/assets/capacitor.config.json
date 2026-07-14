@@ -1,0 +1,15 @@
+{
+	"appId": "com.zdauto.tourism.cockpit",
+	"appName": "智游观光车",
+	"webDir": "dist",
+	"bundledWebRuntime": false,
+	"android": {
+		"allowMixedContent": true,
+		"captureInput": true,
+		"webContentsDebuggingEnabled": true
+	},
+	"backgroundColor": "#1F3A3D",
+	"server": {
+		"androidScheme": "https"
+	}
+}

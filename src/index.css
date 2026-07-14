@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-rice text-ink font-cnSans;
+    margin: 0;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #root {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-ink/30 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink/50;
+  }
+}
+
+@layer components {
+  /* 通用按钮 */
+  .btn-primary {
+    @apply px-6 py-3 bg-cinnabar text-rice font-medium rounded-btn
+           shadow-card hover:shadow-card-hover active:translate-y-0.5
+           transition-all duration-200;
+  }
+  .btn-secondary {
+    @apply px-6 py-3 bg-mountain text-ink font-medium rounded-btn
+           border-2 border-ink/20 hover:border-ink/40
+           transition-all duration-200;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 text-ink/80 hover:text-ink hover:bg-ink/5
+           rounded-btn transition-all duration-200;
+  }
+
+  /* 卡片 */
+  .card {
+    @apply bg-rice/95 backdrop-blur-sm rounded-card shadow-card p-6;
+  }
+
+  /* 水墨背景 */
+  .ink-bg {
+    background:
+      linear-gradient(180deg, rgba(245, 241, 232, 0.95) 0%, rgba(232, 240, 242, 0.95) 100%),
+      radial-gradient(ellipse at top, rgba(31, 58, 61, 0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(197, 48, 48, 0.03) 0%, transparent 60%);
+  }
+
+  /* 古风分隔线 */
+  .ink-divider {
+    @apply relative h-px bg-ink/20 my-4;
+  }
+  .ink-divider::before {
+    content: '◆';
+    @apply absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+           text-ink/40 text-xs bg-rice px-2;
+  }
+
+  /* 视频容器 */
+  .video-frame {
+    @apply relative overflow-hidden rounded-card bg-ink/5;
+  }
+
+  /* 文字发光效果 */
+  .text-glow {
+    text-shadow: 0 2px 8px rgba(31, 58, 61, 0.15);
+  }
+}
+
+@layer utilities {
+  /* 28寸大屏适配：基准1920x1080，使用rem缩放 */
+  .screen-1080p {
+    --base-width: 1920;
+    --base-height: 1080;
+  }
+
+  /* 居中容器 */
+  .center-both {
+    @apply flex items-center justify-center;
+  }
+}
