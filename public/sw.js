@@ -8,7 +8,7 @@
  *   这样在 Capacitor（file://）、GitHub Pages（/cockpit-h5/）等任意子路径下都能正确解析。
  */
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
