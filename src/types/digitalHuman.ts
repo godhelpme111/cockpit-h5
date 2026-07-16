@@ -2,17 +2,30 @@
 
 export type DHState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
+/**
+ * 数字人配置
+ * 兼容旧字段（avatarId / voiceId），同时支持新字段（figureId / ttsPer / token）。
+ *   avatarId  → figureId  (新 SDK 用这个)
+ *   voiceId   → ttsPer     (新 SDK 用这个)
+ */
 export interface DHConfig {
-  avatarId: string;       // 数字人形象ID
-  voiceId: string;        // 音色ID
+  // 兼容旧字段
+  avatarId?: string;
+  voiceId?: string;
+  // 新字段（百度数字人 WebSDK）
+  figureId?: string;
+  ttsPer?: string;
+  /** 鉴权 token（<appId>/<accessToken>/<expiry>），不传则从环境变量读 */
+  token?: string;
+  // 通用
   language: 'zh-CN' | 'en-US' | 'ja-JP' | 'ko-KR';
-  lipSync: boolean;       // 是否启用口型同步
+  lipSync: boolean;
 }
 
 export interface SpeakOptions {
-  interrupt?: boolean;    // 是否打断当前播放
+  interrupt?: boolean;
   emotion?: 'neutral' | 'happy' | 'sad' | 'surprised';
-  speed?: number;         // 语速 0.5~2.0
+  speed?: number;
 }
 
 export type DHEvent =
@@ -21,6 +34,10 @@ export type DHEvent =
   | 'speakEnd'
   | 'listenStart'
   | 'listenEnd'
-  | 'error';
+  | 'error'
+  /** 数字人即将超时（来自 SDK 的 DISCONNECT_ALERT） */
+  | 'disconnectAlert'
+  /** 数字人已超时退出（来自 SDK 的 TIMEOUT_EXIT） */
+  | 'timeout';
 
 export type DHHandler = (data: any) => void;

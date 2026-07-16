@@ -1,42 +1,102 @@
 import type { IDigitalHuman } from './IDigitalHuman';
 import type { DHState, DHConfig, SpeakOptions, DHEvent, DHHandler } from '@/types';
+import { BaiduDHWebSDK, type BaiduDHConfig } from './BaiduDHWebSDK';
 
 /**
- * 百度智能云 数字人 SDK 实现（占位）
+ * 百度智能云数字人 SDK 实现（Web 端 iframe 方式）
+ * ─────────────────────────────────────────────
+ * 集成步骤：
+ *   1. 百度智能云控制台开通"数字人"组件
+ *   2. 在"形象信息列表"里选一个形象，拿到 figureId
+ *   3. 调"接口通用说明"里的鉴权接口，生成 token
+ *   4. 把 figureId / token / ttsPer 填到 .env.production
+ *   5. VITE_BAIDU_SDK_MODE=real  即用真实数字人；mock 则用 SVG 假形象
  *
- * 真实集成时需：
- * 1. 在百度智能云控制台创建数字人形象，获取 avatarId
- * 2. 引入百度数字人SDK：@baidu/digital-human-sdk
- * 3. 实现 WebSocket 双向通信
- * 4. 处理 ASR 音频流
- * 5. 渲染数字人视频流
+ * 通信机制：
+ *   - 父页通过 postMessage 发送 { type: 'message' | 'command', content }
+ *   - iframe 通过 postMessage 回传 { type: 'rtcState' | 'wsState' | 'msg', content }
  */
+
+let uuidCounter = 0;
+const uuid = (): string =>
+  `req-${Date.now().toString(36)}-${(uuidCounter++).toString(36)}`;
+
 export class BaiduDigitalHuman implements IDigitalHuman {
   private state: DHState = 'idle';
   private config: DHConfig | null = null;
-  private ws: WebSocket | null = null;
+  private sdk: BaiduDHWebSDK | null = null;
+  private listeners: Map<DHEvent, DHHandler[]> = new Map();
+  private currentCommandId: string | null = null;
+  private speakingResolver: ((text: string) => void) | null = null;
 
   async init(config: DHConfig): Promise<void> {
     this.config = config;
-    const appId = import.meta.env.VITE_BAIDU_APP_ID;
-    const apiKey = import.meta.env.VITE_BAIDU_API_KEY;
 
-    if (!appId || !apiKey) {
-      throw new Error('百度数字人SDK凭证未配置');
+    // 1) 解析 figureId / token / ttsPer
+    //    优先用 config 里的，没有则从 env 读
+    const figureId =
+      config.figureId ||
+      config.avatarId ||
+      import.meta.env.VITE_BAIDU_DH_FIGURE_ID ||
+      '';
+    const ttsPer =
+      config.ttsPer ||
+      config.voiceId ||
+      import.meta.env.VITE_BAIDU_DH_TTS_PER ||
+      '4105';
+    const token =
+      config.token ||
+      import.meta.env.VITE_BAIDU_DH_TOKEN ||
+      '';
+
+    if (!figureId || !token) {
+      console.warn(
+        '[BaiduDigitalHuman] 缺少 figureId 或 token，数字人将无法正常加载。' +
+          '请在 .env.production 配置 VITE_BAIDU_DH_FIGURE_ID / VITE_BAIDU_DH_TOKEN。'
+      );
     }
 
-    // TODO: 真实实现
-    // 1. 获取 access_token
-    // 2. 建立 WebSocket 连接
-    // 3. 发送 start_session 信令
-    console.log('[BaiduDigitalHuman] 初始化（占位）', { appId, config });
+    // 2) 构造 SDK 配置
+    const sdkConfig: BaiduDHConfig = {
+      token,
+      figureId,
+      ttsPer,
+      initMode: 'noAudio', // H5 端不采集麦克风（initMode=noAudio）
+      videoBg: 'rgba(0,0,0,0)', // 透明，让上层 UI 自己叠背景
+      resolutionWidth: 720,
+      resolutionHeight: 1080,
+      // 数字人在 iframe 中居中、上半部展示
+      positionV2: JSON.stringify({
+        location: { top: 0, left: 0, width: 720, height: 1080 },
+      }),
+      preAlertSec: 120,
+      inactiveDisconnectSec: 0, // 默认不自动断连，让乘客持续体验
+      autoAnimoji: true,
+    };
 
-    // 占位：模拟连接
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    this.sdk = new BaiduDHWebSDK(sdkConfig);
+    this.sdk.onEvent((e) => this.handleSDKEvent(e));
+    console.info('[BaiduDigitalHuman] SDK initialized', {
+      figureId,
+      ttsPer,
+      tokenLen: token.length,
+    });
+  }
+
+  /** React 组件挂载好 iframe 后调用，注册到 SDK */
+  bindIframe(el: HTMLIFrameElement | null) {
+    this.sdk?.setIframe(el);
+  }
+
+  /** 暴露给组件的 URL */
+  getIframeUrl(): string {
+    return this.sdk?.getUrl() || 'about:blank';
   }
 
   setState(state: DHState): void {
+    if (this.state === state) return;
     this.state = state;
+    this.emit('stateChange', state);
   }
 
   getState(): DHState {
@@ -44,34 +104,115 @@ export class BaiduDigitalHuman implements IDigitalHuman {
   }
 
   async speak(text: string, options?: SpeakOptions): Promise<void> {
-    // TODO: 通过 WebSocket 发送 text，接收 TTS 音频流
-    console.log('[BaiduDigitalHuman] speak', text, options);
-    await new Promise((resolve) => setTimeout(resolve, text.length * 80));
+    if (!this.sdk) {
+      console.warn('[BaiduDigitalHuman] speak before init, fallback to timeout');
+      await new Promise((r) => setTimeout(r, 200));
+      return;
+    }
+    if (!text) return;
+    if (options?.interrupt) this.stopSpeaking();
+
+    this.currentCommandId = uuid();
+    this.setState('speaking');
+    this.emit('speakStart', text);
+
+    this.sdk.sendText(text, this.currentCommandId);
+
+    return new Promise((resolve) => {
+      this.speakingResolver = (text: string) => {
+        resolve();
+        this.speakingResolver = null;
+      };
+      // 兜底：60s 后强制结束（避免 SDK 异常时永久挂起）
+      setTimeout(() => {
+        if (this.speakingResolver) {
+          console.warn('[BaiduDigitalHuman] speak timeout, force end');
+          this.speakingResolver('');
+        }
+      }, 60000);
+    });
   }
 
   stopSpeaking(): void {
-    console.log('[BaiduDigitalHuman] stopSpeaking');
+    if (!this.sdk || this.state !== 'speaking') return;
+    const id = this.currentCommandId || uuid();
+    this.sdk.sendInterrupt(id);
+    this.speakingResolver?.('');
+    this.setState('idle');
   }
 
   async listen(): Promise<string> {
-    // TODO: 启动录音，音频流通过 WebSocket 发送至 ASR
-    console.log('[BaiduDigitalHuman] listen');
+    // initMode=noAudio，SDK 不会采集麦克风
+    // 这里仅更新状态，实际 ASR 由外部 useRecorder Hook 完成
+    this.setState('listening');
+    this.emit('listenStart', null);
     return '';
   }
 
   async stopListening(): Promise<string> {
-    console.log('[BaiduDigitalHuman] stopListening');
+    this.emit('listenEnd', null);
+    this.setState('idle');
     return '';
   }
 
   on(event: DHEvent, handler: DHHandler): void {
-    // TODO: 实现事件订阅
+    if (!this.listeners.has(event)) this.listeners.set(event, []);
+    this.listeners.get(event)!.push(handler);
   }
 
   destroy(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    this.sdk?.destroy();
+    this.sdk = null;
+    this.listeners.clear();
+  }
+
+  // ───── 内部 ─────
+
+  private handleSDKEvent(event: { type: string; content: any }) {
+    const { type, content } = event;
+
+    if (type === 'msg') {
+      const { action, requestId, body } = content || {};
+      if (action === 'FINISHED' && requestId === this.currentCommandId) {
+        this.speakingResolver?.('');
+        this.setState('idle');
+        this.emit('speakEnd', body ?? null);
+        this.currentCommandId = null;
+      } else if (action === 'RENDER_START') {
+        this.setState('speaking');
+        this.emit('speakStart', body ?? null);
+      } else if (action === 'RENDER_ERROR') {
+        this.setState('idle');
+        this.emit('error', { reason: 'render_error', detail: body });
+      } else if (action === 'DISCONNECT_ALERT') {
+        this.emit('disconnectAlert', null);
+      } else if (action === 'TIMEOUT_EXIT') {
+        this.emit('timeout', null);
+      } else if (action === 'CONNECT') {
+        console.info('[BaiduDigitalHuman] iframe connected');
+      }
+    } else if (type === 'rtcState') {
+      // video 流就绪 / 静音状态变化
+      if (content?.action === 'localVideoMuted' && content.body) {
+        // 自动播放被浏览器拦截，提示用户点击解锁
+        this.emit('error', { reason: 'autoplay_blocked' });
+      }
+    } else if (type === 'wsState') {
+      const { readyState } = content || {};
+      if (readyState === 1) {
+        console.info('[BaiduDigitalHuman] WS connected');
+      } else if (readyState === 2 || readyState === 3) {
+        console.warn('[BaiduDigitalHuman] WS closed', readyState);
+        if (this.state === 'speaking') {
+          this.speakingResolver?.('');
+          this.setState('idle');
+        }
+      }
     }
+  }
+
+  private emit(event: DHEvent, data: any) {
+    const handlers = this.listeners.get(event);
+    if (handlers) handlers.forEach((h) => h(data));
   }
 }

@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 /**
- * Direct push of source -> main, and dist/ -> gh-pages, using the GitHub REST API.
+ * Push source code -> main branch using the GitHub REST API.
  * No git / gh CLI required.
+ *
+ * After this push, the GitHub Actions workflow (`.github/workflows/deploy.yml`)
+ * automatically:
+ *   1. Detects the push
+ *   2. Sets GITHUB_PAGES=true
+ *   3. Runs `npm run build` (build:gh internally uses cross-env)
+ *   4. Uploads the dist/ artifact
+ *   5. Deploys to GitHub Pages
  *
  * Required environment:
  *   GITHUB_TOKEN     Personal Access Token (classic fine; needs 'repo' scope)
@@ -18,7 +26,6 @@
 import { Octokit } from '@octokit/rest';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // ---- 0. read env (NEVER log these) -----------------------------------------
@@ -43,7 +50,7 @@ const octokit = new Octokit({
 });
 
 // ---- 1. ensure repo exists (idempotent) ------------------------------------
-console.log(`\n[1/6] Ensuring repo ${USERNAME}/${REPO} exists…`);
+console.log(`\n[1/4] Ensuring repo ${USERNAME}/${REPO} exists…`);
 try {
   await octokit.repos.createForAuthenticatedUser({
     name: REPO,
@@ -65,7 +72,7 @@ const BINARY_EXTS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico',
   '.woff', '.woff2', '.ttf', '.eot',
   '.pdf', '.zip', '.mp4', '.webm',
-  '.map', '.ico',
+  '.map',
 ]);
 
 const SKIP_DIRS = new Set([
@@ -140,7 +147,7 @@ async function getCommitTree(sha) {
   return data.tree.sha;
 }
 
-async function pushTree({ branch, files, message, clean = false }) {
+async function pushTree({ branch, files, message }) {
   console.log(`  → branch ${branch}: ${files.length} files`);
 
   // 1) blobs
@@ -167,7 +174,7 @@ async function pushTree({ branch, files, message, clean = false }) {
 
   // 2) tree
   const head = await getBranchHead(branch);
-  const baseTree = clean || head.isNew ? undefined : await getCommitTree(head.sha);
+  const baseTree = head.isNew ? undefined : await getCommitTree(head.sha);
   const { data: tree } = await octokit.git.createTree({
     owner: USERNAME,
     repo: REPO,
@@ -207,47 +214,27 @@ async function pushTree({ branch, files, message, clean = false }) {
 }
 
 // ---- 3. collect source files ----------------------------------------------
-console.log(`\n[2/6] Collecting source files for main…`);
+console.log(`\n[2/4] Collecting source files for main…`);
 const sourceFiles = [];
 for await (const f of walk(ROOT)) sourceFiles.push(f);
 console.log(`  ${sourceFiles.length} files queued for main`);
 
-// ---- 4. build dist/ for GitHub Pages ---------------------------------------
-console.log(`\n[3/6] Building dist/ with base=/cockpit-h5/…`);
-execSync('npm run build', {
-  stdio: 'inherit',
-  env: { ...process.env, GITHUB_PAGES: 'true' },
-});
-
-const distDir = path.join(ROOT, 'dist');
-const distFiles = [];
-for await (const f of walk(distDir)) distFiles.push(f);
-console.log(`  ${distFiles.length} dist files queued`);
-
-// ---- 5. push main ----------------------------------------------------------
-console.log(`\n[4/6] Pushing main…`);
+// ---- 4. push main ----------------------------------------------------------
+console.log(`\n[3/4] Pushing main…`);
 await pushTree({
   branch: 'main',
   files: sourceFiles,
   message: 'chore: deploy via API',
 });
 
-// ---- 6. push gh-pages (clean overwrite) ------------------------------------
-console.log(`\n[5/6] Pushing gh-pages (clean)…`);
-await pushTree({
-  branch: 'gh-pages',
-  files: distFiles,
-  message: 'deploy: dist via API',
-  clean: true,
-});
-
-// ---- 7. final report -------------------------------------------------------
+// ---- 5. final report -------------------------------------------------------
 const live = `https://${USERNAME}.github.io/${REPO}/`;
-console.log(`\n[6/6] ✓ Deployment complete`);
+const actions = `https://github.com/${USERNAME}/${REPO}/actions`;
+console.log(`\n[4/4] ✓ Source pushed to main`);
 console.log(`=========================================`);
-console.log(`  Repo : https://github.com/${USERNAME}/${REPO}`);
-console.log(`  Live : ${live}`);
+console.log(`  Repo    : https://github.com/${USERNAME}/${REPO}`);
+console.log(`  Live    : ${live}`);
+console.log(`  Actions : ${actions}`);
 console.log(`=========================================`);
-console.log(`\nNext: 打开 GitHub 仓库 → Settings → Pages`);
-console.log(`      Source: 'Deploy from a branch' → Branch: gh-pages / (root) → Save`);
-console.log(`      等待约 1 分钟后访问上面的 Live URL 即可。`);
+console.log(`\nGitHub Actions 将在 ~30 秒内自动构建并发布到 GitHub Pages。`);
+console.log(`在 Actions 页面可以查看实时进度。`);

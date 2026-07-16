@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDigitalHumanStore } from '@/stores/digitalHumanStore';
+import BaiduDigitalHumanIframe, { isBaiduDHEnabled } from './BaiduDigitalHumanIframe';
 
 interface Props {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -8,13 +9,36 @@ interface Props {
 }
 
 /**
- * 数字人形象
- * 演示版：使用CSS+SVG绘制古风IP数字人"小雅"
- * 生产环境应替换为百度数字人SDK的视频流
+ * 数字人形象（统一入口）
+ * ──────────────────────
+ * 模式自动判定：
+ *   - VITE_BAIDU_SDK_MODE=real + 配置了 token/figureId → 加载百度 iframe 真实形象
+ *   - 其他情况 → 走 SVG mock 形象（默认古风 IP "小雅"）
  */
 export default function DigitalHuman({ size = 'lg', showWave = false, amplitude = 0 }: Props) {
   const { state } = useDigitalHumanStore();
+  const useReal = isBaiduDHEnabled();
 
+  if (useReal) {
+    // 真实数字人：直接渲染 iframe，UI 状态由 service → store → 组件
+    return <BaiduDigitalHumanIframe size={size} />;
+  }
+
+  return <MockDigitalHumanSVG size={size} state={state} showWave={showWave} amplitude={amplitude} />;
+}
+
+/** Mock 古风 IP 数字人"小雅" - SVG 绘制 */
+function MockDigitalHumanSVG({
+  size,
+  state,
+  showWave,
+  amplitude,
+}: {
+  size: 'sm' | 'md' | 'lg' | 'xl';
+  state: string;
+  showWave: boolean;
+  amplitude: number;
+}) {
   const sizes = {
     sm: 'w-24 h-32',
     md: 'w-40 h-52',
@@ -57,7 +81,7 @@ export default function DigitalHuman({ size = 'lg', showWave = false, amplitude 
         }}
         transition={{ duration: 0.2 }}
       >
-        <DigitalHumanAvatar state={state} />
+        <MockAvatar state={state} />
       </motion.div>
 
       {/* 状态标签 */}
@@ -71,8 +95,7 @@ export default function DigitalHuman({ size = 'lg', showWave = false, amplitude 
   );
 }
 
-/** 古风IP数字人"小雅" - SVG绘制 */
-function DigitalHumanAvatar({ state }: { state: string }) {
+function MockAvatar({ state }: { state: string }) {
   return (
     <svg
       viewBox="0 0 240 320"
@@ -102,19 +125,16 @@ function DigitalHumanAvatar({ state }: { state: string }) {
 
       {/* 服饰 - 汉服 */}
       <g className={state === 'speaking' ? 'animate-breathe' : ''}>
-        {/* 衣袖 */}
         <path
           d="M40,260 Q40,200 60,180 L100,170 L140,170 L180,180 Q200,200 200,260 L200,320 L40,320 Z"
           fill="url(#clothGrad)"
           opacity="0.95"
         />
-        {/* 衣领装饰 */}
         <path
           d="M85,180 L120,200 L155,180 L155,210 L120,225 L85,210 Z"
           fill="#C53030"
           opacity="0.85"
         />
-        {/* 腰带 */}
         <rect x="80" y="240" width="80" height="6" fill="#D4A574" rx="2" />
         <circle cx="120" cy="243" r="6" fill="#D4A574" />
       </g>
@@ -132,27 +152,19 @@ function DigitalHumanAvatar({ state }: { state: string }) {
           transition: 'transform 0.4s ease',
         }}
       >
-        {/* 脸型 */}
         <ellipse cx="120" cy="100" rx="38" ry="44" fill="url(#skinGrad)" />
         <ellipse cx="120" cy="100" rx="38" ry="44" fill="url(#faceGlow)" />
-
-        {/* 头发 - 后发髻 */}
         <ellipse cx="120" cy="65" rx="42" ry="32" fill="url(#hairGrad)" />
-        {/* 刘海 */}
         <path
           d="M82,68 Q90,50 120,50 Q150,50 158,68 Q150,80 120,80 Q90,80 82,68 Z"
           fill="url(#hairGrad)"
         />
-        {/* 侧发 */}
         <path d="M80,80 Q75,120 85,160 L92,155 Q88,120 92,85 Z" fill="url(#hairGrad)" />
         <path d="M160,80 Q165,120 155,160 L148,155 Q152,120 148,85 Z" fill="url(#hairGrad)" />
-
-        {/* 发饰 - 朱钗 */}
         <circle cx="148" cy="60" r="4" fill="#C53030" />
         <rect x="146" y="55" width="4" height="20" fill="#D4A574" />
         <circle cx="92" cy="60" r="3" fill="#D4A574" />
 
-        {/* 眉毛 */}
         <path
           d="M100,90 Q107,87 115,90"
           stroke="#1A1A1A"
@@ -168,7 +180,6 @@ function DigitalHumanAvatar({ state }: { state: string }) {
           strokeLinecap="round"
         />
 
-        {/* 眼睛 */}
         {state === 'listening' ? (
           <>
             <ellipse cx="107" cy="103" rx="5" ry="6" fill="#1A1A1A" />
@@ -188,10 +199,8 @@ function DigitalHumanAvatar({ state }: { state: string }) {
           </>
         )}
 
-        {/* 鼻子 */}
         <path d="M120,108 L118,118 L122,118 Z" fill="#E0BC9C" opacity="0.6" />
 
-        {/* 嘴巴 */}
         {state === 'speaking' ? (
           <ellipse cx="120" cy="128" rx="6" ry="4" fill="#C53030" />
         ) : state === 'listening' ? (
@@ -200,12 +209,10 @@ function DigitalHumanAvatar({ state }: { state: string }) {
           <path d="M114,127 Q120,131 126,127" stroke="#A05050" strokeWidth="2" fill="none" strokeLinecap="round" />
         )}
 
-        {/* 腮红 */}
         <ellipse cx="98" cy="118" rx="5" ry="3" fill="#F5A0A0" opacity="0.4" />
         <ellipse cx="142" cy="118" rx="5" ry="3" fill="#F5A0A0" opacity="0.4" />
       </g>
 
-      {/* 折扇（手持装饰） */}
       <g transform="translate(170, 230) rotate(20)">
         <path d="M0,0 L40,-30 L42,-28 L2,2 Z" fill="#C53030" opacity="0.85" />
         <path d="M0,0 L30,-20 M0,0 L25,-15 M0,0 L20,-10" stroke="#D4A574" strokeWidth="1" opacity="0.7" />
