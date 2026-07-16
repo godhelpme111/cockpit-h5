@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '@/stores/chatStore';
 import { useDigitalHumanStore } from '@/stores/digitalHumanStore';
-import { useRecorder } from '@/hooks/useRecorder';
+import { useRealtimeASR } from '@/hooks/useRealtimeASR';
 import { useDigitalHuman } from '@/hooks/useDigitalHuman';
 import DigitalHuman from '@/components/digital-human/DigitalHuman';
 import ChatBubble from '@/components/chat/ChatBubble';
@@ -21,53 +21,45 @@ export default function ChatPage() {
   const { messages, isThinking, addUserMessage, addAssistantMessage, setThinking, processQuestion } = useChatStore();
   const { state: dhState, setState, setAmplitude, amplitude } = useDigitalHumanStore();
   const { speak } = useDigitalHuman();
-  const recorder = useRecorder();
+  const asr = useRealtimeASR();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 同步录音振幅
   useEffect(() => {
-    setAmplitude(recorder.amplitude);
-  }, [recorder.amplitude, setAmplitude]);
+    setAmplitude(asr.amplitude);
+  }, [asr.amplitude, setAmplitude]);
 
   // 滚动到底部
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, isThinking]);
 
-  // 录音启动
+  // 按下麦克风：开始录音 + ASR
   const handleStart = async () => {
-    await recorder.start();
+    await asr.start();
+    if (asr.error) return;
     setState('listening');
   };
 
-  // 录音结束 → ASR + LLM + TTS
+  // 松开麦克风：拿到最终识别文本 → 调 LLM → 数字人播报
   const handleStop = async () => {
-    const blob = await recorder.stop();
+    const question = (await asr.stop())?.trim() || '';
+    if (!question) {
+      // 兜底：没识别到，弹个空泡
+      setState('idle');
+      return;
+    }
     setState('thinking');
     setThinking(true);
 
-    // Mock ASR：直接使用内置问题（演示用）
-    // 真实场景应调用百度ASR API
-    const mockQuestions = [
-      '介绍一下白塔',
-      '下一站是哪里',
-      '附近有什么好吃的',
-      '今天天气怎么样',
-      '卫生间在哪',
-      '今天有什么演出',
-    ];
-    const question = mockQuestions[Math.floor(Math.random() * mockQuestions.length)];
+    addUserMessage(question);
 
-    addUserMessage(question, recorder.audioUrl || undefined, recorder.duration);
-
-    // 模拟思考延迟
-    await new Promise((r) => setTimeout(r, 800));
+    // 模拟思考延迟（实际由 LLM 决定）
+    await new Promise((r) => setTimeout(r, 300));
     setThinking(false);
 
-    // 处理问题
     const answer = await processQuestion(question);
     if (answer) {
-      // 数字人朗读
       setState('speaking');
       await speak(answer);
       setState('idle');
@@ -111,11 +103,11 @@ export default function ChatPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-rice/95 rounded-card px-3 py-2 sm:px-6 sm:py-3 shadow-card hidden lg:block"
+                className="bg-rice/95 rounded-card px-3 py-2 sm:px-6 sm:py-3 shadow-card hidden lg:block max-w-[280px]"
               >
                 <VoiceWave amplitude={amplitude} active={true} />
-                <div className="text-small text-ink/60 text-center mt-2">
-                  {recorder.duration.toFixed(1)}s
+                <div className="text-small text-ink/60 text-center mt-2 min-h-[1.25em] truncate">
+                  {asr.partialText || '正在识别…'}
                 </div>
               </motion.div>
             ) : dhState === 'thinking' ? (
@@ -136,15 +128,15 @@ export default function ChatPage() {
           </AnimatePresence>
 
           <RecordButton
-            recording={recorder.recording}
+            recording={asr.recording}
             onStart={handleStart}
             onStop={handleStop}
             amplitude={amplitude}
             disabled={isThinking || dhState === 'speaking'}
           />
 
-          {recorder.error && (
-            <div className="text-small text-cinnabar hidden lg:block">⚠ {recorder.error}</div>
+          {asr.error && (
+            <div className="text-small text-cinnabar hidden lg:block">⚠ {asr.error}</div>
           )}
         </div>
 

@@ -147,6 +147,20 @@ async function getCommitTree(sha) {
   return data.tree.sha;
 }
 
+async function createBlobWithRetry(blob, attempt = 1) {
+  try {
+    return await octokit.git.createBlob(blob);
+  } catch (err) {
+    if (attempt < 5 && (err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.status >= 500)) {
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(`    ! blob ${blob.path?.slice(0, 60)} failed (${err.code || err.status}), retry ${attempt}/5 in ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+      return createBlobWithRetry(blob, attempt + 1);
+    }
+    throw err;
+  }
+}
+
 async function pushTree({ branch, files, message }) {
   console.log(`  → branch ${branch}: ${files.length} files`);
 
@@ -158,7 +172,7 @@ async function pushTree({ branch, files, message }) {
     const buf = await fs.readFile(f.abs);
     const enc = isBinary(f.rel) ? 'base64' : 'utf-8';
     const content = enc === 'base64' ? buf.toString('base64') : buf.toString('utf-8');
-    const { data } = await octokit.git.createBlob({
+    const { data } = await createBlobWithRetry({
       owner: USERNAME,
       repo: REPO,
       content,

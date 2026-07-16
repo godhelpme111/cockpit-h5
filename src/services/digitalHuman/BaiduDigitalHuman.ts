@@ -33,18 +33,29 @@ export class BaiduDigitalHuman implements IDigitalHuman {
     this.config = config;
 
     // 1) 解析 figureId / token / ttsPer
-    //    优先用 config 里的，没有则从 env 读
+    //    真实模式（VITE_BAIDU_SDK_MODE=real）下，env 里的真实参数优先于 config；
+    //    只有 mock 模式才用 config 里的 avatarId/voiceId（古风 IP "小雅"）。
+    const isRealMode = (import.meta.env.VITE_BAIDU_SDK_MODE ?? 'mock') === 'real';
     const figureId =
+      (isRealMode
+        ? import.meta.env.VITE_BAIDU_DH_FIGURE_ID
+        : null) ||
       config.figureId ||
       config.avatarId ||
       import.meta.env.VITE_BAIDU_DH_FIGURE_ID ||
       '';
     const ttsPer =
+      (isRealMode
+        ? import.meta.env.VITE_BAIDU_DH_TTS_PER
+        : null) ||
       config.ttsPer ||
       config.voiceId ||
       import.meta.env.VITE_BAIDU_DH_TTS_PER ||
       '4105';
     const token =
+      (isRealMode
+        ? import.meta.env.VITE_BAIDU_DH_TOKEN
+        : null) ||
       config.token ||
       import.meta.env.VITE_BAIDU_DH_TOKEN ||
       '';
