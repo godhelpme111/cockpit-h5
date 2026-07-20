@@ -32,6 +32,40 @@ export const knowledgeBase: KnowledgeItem[] = [
     followUp: ['听雨亭的传说', '亭子历史', '其他古建筑'],
   },
   {
+    id: 'attraction-sudi',
+    category: 'attraction',
+    keywords: ['苏堤', 'sudi', '小吃', 'snack', '美食', 'food'],
+    patterns: [/苏堤.*(小吃|美食|吃)|附近.*吃/],
+    answer: '苏堤北端有知味观、楼外楼两家百年老店，推荐西湖醋鱼、龙井虾仁、定胜糕。中段有"苏堤春晓"小食铺，售卖莲藕糕、桂花糖藕。最推荐傍晚在苏堤上看夕阳品茶。',
+    relatedCard: {
+      type: 'image',
+      title: '苏堤美食地图',
+      description: '百年老字号 + 特色小食',
+    },
+    followUp: ['楼外楼招牌菜', '西湖醋鱼', '茶馆推荐'],
+  },
+  {
+    id: 'service-park-hours',
+    category: 'service',
+    keywords: ['关门', '开门', '时间', '小时', 'hours', '营业'],
+    patterns: [/(公园|景区).*(关门|开放|时间|营业)/],
+    answer: '杭州西湖核心景区 24 小时开放（免费），周边收费公园（如花港观鱼、太子湾）开放时间为 7:00-17:30（夏季延至 18:00）。建议您下午 5 点前结束游览，错峰出行体验更好。',
+    followUp: ['太子湾开放时间', '雷峰塔开放时间', '其他公园'],
+  },
+  {
+    id: 'attraction-lingyin',
+    category: 'attraction',
+    keywords: ['灵隐', 'lingyin', '寺庙', 'temple'],
+    patterns: [/灵隐(寺|.*开门|.*开放)/],
+    answer: '灵隐寺全年开放，开放时间 7:00-18:30（冬季 7:30-17:30），周一不闭馆，但初一、十五和法会期间游客较多。门票 45 元（需先买飞来峰门票 45 元）。建议您先到飞来峰，再步行 15 分钟进灵隐寺。',
+    relatedCard: {
+      type: 'image',
+      title: '灵隐寺',
+      description: '千年古刹 · 飞来峰景区',
+    },
+    followUp: ['飞来峰门票', '灵隐寺求什么灵', '周边美食'],
+  },
+  {
     id: 'service-restroom',
     category: 'service',
     keywords: ['卫生间', '厕所', 'restroom', 'wc', 'toilet', 'bathroom'],
@@ -160,6 +194,22 @@ export const quickQuestions: string[] = [
   '卫生间在哪',
   '今天有什么演出',
   '景区有多大',
+];
+
+/**
+ * 智能版首页"点击想问的问题"专用配置
+ * - 颜色按设计稿：紫 / 橙 / 绿
+ */
+export interface HomeQuickQuestion {
+  text: string;
+  /** 渐变 Tailwind class (from-x to-y) */
+  gradient: string;
+}
+
+export const homeQuickQuestions: HomeQuickQuestion[] = [
+  { text: '附近的公园几点关门？', gradient: 'from-violet-500 to-purple-500' },
+  { text: '苏堤周围有什么小吃？', gradient: 'from-orange-400 to-rose-400' },
+  { text: '灵隐寺周一开门吗？', gradient: 'from-emerald-400 to-teal-500' },
 ];
 
 // 关键词匹配
