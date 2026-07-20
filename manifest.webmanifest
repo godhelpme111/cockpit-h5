@@ -1,7 +1,7 @@
 {
-  "name": "景区智能观光车 · 乘客端",
-  "short_name": "智游观光车",
-  "description": "搭载AI数字人导游的景区智能观光车乘客端，提供自然语言互动问答与Vlog自动生成能力。",
+  "name": "Mogo智游 · 杭州西湖文化线",
+  "short_name": "Mogo智游",
+  "description": "Mogo智游 - 杭州西湖景区智能观光车乘客端，搭载AI数字人导游、自然语言语音对话、Vlog 自动生成能力。",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "./",
